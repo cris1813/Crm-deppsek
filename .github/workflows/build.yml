@@ -30,20 +30,23 @@ jobs:
 
       - name: Preparar proyecto, Wllama y dependencias
         run: |
+          # Crear carpeta web y mover el código
           mkdir -p www
           cp index.html www/index.html
+
+          # Instalar Capacitor y Wllama
           npm init -y
           npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest @wllama/wllama@3.5.1
-          
-          # Empaquetamos Wllama localmente dentro del APK
+
+          # Empaquetar Wllama directamente dentro de la aplicación
           mkdir -p www/wllama
           cp -r node_modules/@wllama/wllama/* www/wllama/
 
-          # Inicializar proyecto con ID único
+          # Generar proyecto Android con ID único
           npx cap init "CRM Clientes" "cl.cristobal.crm" --web-dir www
           npx cap add android
 
-          # Habilitar memoria extendida (largeHeap) para que Android no cierre la app con el modelo
+          # Asignar memoria extendida (largeHeap) para que Android no cierre la app con el modelo
           sed -i 's/<application/<application android:largeHeap="true" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Compilar APK con Gradle
@@ -63,4 +66,5 @@ jobs:
           gh release create v1.0 \
             android/app/build/outputs/apk/debug/CRM-Clientes.apk \
             --title "CRM Clientes (DeepSeek Offline)" \
-            --notes "APK con motor Wllama y memoria largeHeap configurada."
+            --notes "APK listo con motor Wllama integrado y memoria largeHeap configurada."
+            
