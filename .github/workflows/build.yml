@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Debug APK
@@ -25,23 +28,39 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-      - name: Preparar proyecto Capacitor y empaquetar
+      - name: Preparar proyecto, Wllama y dependencias
         run: |
           mkdir -p www
           cp index.html www/index.html
           npm init -y
-          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
-          npx cap init "CRM Clientes" "com.crm.clientes" --web-dir www
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest @wllama/wllama@3.5.1
+          
+          # Empaquetamos Wllama localmente dentro del APK
+          mkdir -p www/wllama
+          cp -r node_modules/@wllama/wllama/* www/wllama/
+
+          # Inicializar proyecto con ID único
+          npx cap init "CRM Clientes" "cl.cristobal.crm" --web-dir www
           npx cap add android
+
+          # Habilitar memoria extendida (largeHeap) para que Android no cierre la app con el modelo
+          sed -i 's/<application/<application android:largeHeap="true" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
 
       - name: Compilar APK con Gradle
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
+          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/CRM-Clientes.apk
 
-      - name: Subir APK como artefacto descargable
-        uses: actions/upload-artifact@v4
-        with:
-          name: CRM-Clientes-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publicar APK suelto en Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete v1.0 --yes || true
+          git tag -d v1.0 || true
+          git push --delete origin v1.0 || true
+          gh release create v1.0 \
+            android/app/build/outputs/apk/debug/CRM-Clientes.apk \
+            --title "CRM Clientes (DeepSeek Offline)" \
+            --notes "APK con motor Wllama y memoria largeHeap configurada."
